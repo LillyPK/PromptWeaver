@@ -2,6 +2,8 @@
 
 import * as state from "./state.js";
 import * as dom from "./domElements.js";
+import { formatTemplates } from "./templates.js"; // Import templates for lookup
+import { formatMessages } from "./formatter.js"; // Import formatter
 import {
   addMessagePair,
   rebuildChatUI,
@@ -19,17 +21,20 @@ export function attachAllListeners() {
 
   // --- JSON Output Area Listeners ---
   dom.jsonOutputContainer.addEventListener("click", handleJsonContainerClick);
-  dom.jsonlOutputPre.addEventListener("keydown", handleJsonKeyDown); // Tab handling
+  dom.jsonlOutputPre.addEventListener("keydown", handleJsonKeyDown);
 
   // --- Context Menu Button Listeners ---
-  dom.copyJsonButton.addEventListener("click", handleCopyJson); // Modified below
+  dom.copyJsonButton.addEventListener("click", handleCopy); // Renamed
   dom.editJsonButton.addEventListener("click", handleEditJson);
 
   // --- Edit Mode Button Listeners ---
   dom.saveJsonButton.addEventListener("click", handleSaveJson);
   dom.cancelJsonButton.addEventListener("click", handleCancelJson);
 
-  // --- Global Click Listener (for hiding context menu) ---
+  // --- Format Selector Listener ---
+  dom.formatSelector.addEventListener("change", handleFormatChange); // Added
+
+  // --- Global Click Listener ---
   document.addEventListener("click", handleGlobalClick);
 }
 
@@ -43,22 +48,15 @@ function handleChatInput(event) {
     const role = textarea.dataset.role;
     const content = textarea.value;
     const messageArrayIndex = role === "user" ? index * 2 : index * 2 + 1;
-
-    // Get current content before update for wasEmpty check
     const wasEmpty = state.messages[messageArrayIndex]?.content === "";
-
-    // Update message content in state
     const updated = state.updateMessageContent(messageArrayIndex, content);
 
     if (updated) {
-      updateJsonlOutput(); // Update JSON display
-
-      // Check if we need to add a new pair
+      updateJsonlOutput();
       const isNowNotEmpty = content.trim() !== "";
       const currentLastPairIndex = Math.floor((state.messages.length - 1) / 2);
-
       if (index === currentLastPairIndex && wasEmpty && isNowNotEmpty) {
-        addMessagePair(); // Add the next pair (UI + data)
+        addMessagePair();
       }
     } else {
       console.error("State mismatch: Failed to update message content.", {
@@ -74,8 +72,10 @@ function handleChatInput(event) {
 // handleJsonContainerClick remains the same...
 function handleJsonContainerClick(event) {
   const isClickOnMenu = dom.jsonContextMenu.contains(event.target);
+  // Only show menu if not editing AND the format is editable OR if clicking copy
+  // Let's simplify: always show menu, but edit button is disabled visually/functionally elsewhere
   if (!state.isEditingJson && !isClickOnMenu) {
-    dom.jsonContextMenu.classList.add("hidden"); // Hide first
+    dom.jsonContextMenu.classList.add("hidden");
     const rect = dom.jsonOutputContainer.getBoundingClientRect();
     const x =
       event.pageX -
@@ -95,23 +95,39 @@ function handleJsonContainerClick(event) {
 
 // handleJsonKeyDown remains the same...
 function handleJsonKeyDown(event) {
-  if (state.isEditingJson && event.key === "Tab") {
-    handleTabIndentation(event); // Delegate to function in jsonOutputUI
+  // Indentation only works if editing is allowed for the format
+  if (
+    state.isEditingJson &&
+    state.currentFormatTemplate.isEditable &&
+    event.key === "Tab"
+  ) {
+    handleTabIndentation(event);
+  } else if (
+    event.key === "Tab" &&
+    state.isEditingJson &&
+    !state.currentFormatTemplate.isEditable
+  ) {
+    // Prevent tab focus change even if not indenting for non-editable formats
+    event.preventDefault();
+    console.log("Tab disabled for non-editable format during edit.");
   }
 }
 
-// Modified: handleCopyJson
-function handleCopyJson() {
-  // Get the filtered data using the helper
+// Modified: handleCopy (was handleCopyJson)
+function handleCopy() {
   const filteredMessages = state.getFilteredMessagesForJson();
-  const jsonlData = {
-    messages: filteredMessages,
-  };
+  const currentTemplate = state.currentFormatTemplate;
+  let stringToCopy = "";
 
-  // Generate the string specifically for copying with 4 spaces
-  const stringToCopy = JSON.stringify(jsonlData, null, 4); // Explicitly 4 spaces
+  // Check if special copy indent level is defined (like for JSON 4-space)
+  if (currentTemplate.copyIndent !== null) {
+    const jsonData = { messages: filteredMessages };
+    stringToCopy = JSON.stringify(jsonData, null, currentTemplate.copyIndent);
+  } else {
+    // Otherwise, format using the standard template rules
+    stringToCopy = formatMessages(filteredMessages, currentTemplate);
+  }
 
-  // Copy the 4-space indented string to the clipboard
   navigator.clipboard
     .writeText(stringToCopy)
     .then(() => {
@@ -128,17 +144,35 @@ function handleCopyJson() {
     });
 }
 
-// handleEditJson remains the same...
+// Modified: handleEditJson respects editability
 function handleEditJson() {
+  if (!state.currentFormatTemplate.isEditable) {
+    alert(
+      `Editing is only supported for the JSON format currently. Please switch format to edit.`
+    );
+    dom.jsonContextMenu.classList.add("hidden");
+    return;
+  }
   setJsonEditable(true); // Enable edit mode visuals and state
   dom.jsonContextMenu.classList.add("hidden");
 }
 
-// handleSaveJson remains the same...
+// Modified: handleSaveJson assumes saved text must be JSON
 function handleSaveJson() {
+  // Saving always assumes the edited content should be parsed as JSON
+  // because that's our internal data structure.
+  if (state.currentFormatTemplate.formatName !== "JSON") {
+    alert("Saving changes requires the format to be set back to JSON.");
+    // Optionally, automatically switch back? For now, just alert.
+    // state.setCurrentFormatTemplate(formatTemplates.JSON);
+    // dom.formatSelector.value = "JSON";
+    // updateJsonlOutput(); // Refresh display to show JSON before potential save attempt
+    return;
+  }
+
   const editedText = dom.jsonlOutputPre.textContent;
   try {
-    const parsedData = JSON.parse(editedText);
+    const parsedData = JSON.parse(editedText); // Attempt to parse as JSON
     if (!parsedData || !Array.isArray(parsedData.messages)) {
       throw new Error("Invalid JSON structure: Missing 'messages' array.");
     }
@@ -156,9 +190,19 @@ function handleSaveJson() {
 
 // handleCancelJson remains the same...
 function handleCancelJson() {
-  // Discard edits by simply exiting edit mode.
-  // setJsonEditable calls updateJsonlOutput, which uses the *unchanged* state.messages.
   setJsonEditable(false);
+}
+
+// Added: handleFormatChange
+function handleFormatChange(event) {
+  const selectedFormatName = event.target.value;
+  const newTemplate = formatTemplates[selectedFormatName];
+  if (newTemplate) {
+    state.setCurrentFormatTemplate(newTemplate); // Update state
+    updateJsonlOutput(); // Re-render output with new format
+  } else {
+    console.error("Selected format template not found:", selectedFormatName);
+  }
 }
 
 // handleGlobalClick remains the same...

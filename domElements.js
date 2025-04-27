@@ -15,3 +15,7 @@ export const copyJsonButton = document.getElementById("copy-json-button");
 export const editJsonButton = document.getElementById("edit-json-button");
 export const saveJsonButton = document.getElementById("save-json-button");
 export const cancelJsonButton = document.getElementById("cancel-json-button");
+
+// New elements
+export const outputTitle = document.getElementById("output-title");
+export const formatSelector = document.getElementById("format-selector");

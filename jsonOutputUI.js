@@ -2,26 +2,40 @@
 
 import * as state from "./state.js";
 import * as dom from "./domElements.js";
-import { setChatInputEnabled } from "./chatInputUI.js"; // To disable/enable chat input
+import { setChatInputEnabled } from "./chatInputUI.js";
+import { formatMessages } from "./formatter.js"; // Import the formatter
 
 // --- Core UI Functions ---
 
 export function updateJsonlOutput() {
-  if (state.isEditingJson) return; // Don't update while actively editing
+  if (state.isEditingJson) return;
 
-  // Get filtered messages using the helper function
+  // Get filtered messages
   const filteredMessages = state.getFilteredMessagesForJson();
 
-  const jsonlData = {
-    messages: filteredMessages,
-  };
+  // Format messages using the current template
+  const formattedString = formatMessages(
+    filteredMessages,
+    state.currentFormatTemplate
+  );
 
-  // Pretty print the JSON for DISPLAY using 2 spaces
-  const jsonString = JSON.stringify(jsonlData, null, 2); // Explicitly 2 spaces
-  dom.jsonlOutputCode.textContent = jsonString;
+  // Update the code display
+  dom.jsonlOutputCode.textContent = formattedString;
 
-  // Generate Line Numbers
-  generateLineNumbers(jsonString);
+  // Update the title
+  dom.outputTitle.textContent = `${state.currentFormatTemplate.formatName} Output`;
+
+  // Generate Line Numbers based on the formatted string
+  generateLineNumbers(formattedString);
+
+  // Enable/disable edit button based on the selected format's editability
+  dom.editJsonButton.disabled = !state.currentFormatTemplate.isEditable;
+  dom.editJsonButton.style.cursor = state.currentFormatTemplate.isEditable
+    ? "pointer"
+    : "not-allowed";
+  dom.editJsonButton.style.opacity = state.currentFormatTemplate.isEditable
+    ? "1"
+    : "0.5";
 }
 
 // generateLineNumbers remains the same...
@@ -43,8 +57,14 @@ function generateLineNumbers(jsonString) {
   }
 }
 
-// setJsonEditable remains the same...
+// setJsonEditable remains mostly the same, but respects editability flag
 export function setJsonEditable(editable) {
+  // Only allow entering edit mode if the current format is editable
+  if (editable && !state.currentFormatTemplate.isEditable) {
+    console.warn("Editing is not supported for the current format.");
+    return;
+  }
+
   state.setEditingJson(editable); // Update state
 
   if (editable) {
@@ -54,21 +74,20 @@ export function setJsonEditable(editable) {
     dom.cancelJsonButton.classList.remove("hidden");
     dom.jsonlOutputPre.classList.add("ring-2", "ring-ring", "bg-background");
     dom.lineNumbersDiv.classList.add("opacity-70");
-    setChatInputEnabled(false); // Disable chat input
+    setChatInputEnabled(false);
   } else {
     dom.jsonlOutputPre.contentEditable = "false";
     dom.saveJsonButton.classList.add("hidden");
     dom.cancelJsonButton.classList.add("hidden");
     dom.jsonlOutputPre.classList.remove("ring-2", "ring-ring", "bg-background");
     dom.lineNumbersDiv.classList.remove("opacity-70");
-    setChatInputEnabled(true); // Enable chat input
-    // Update JSON/line numbers based on the current state.messages
-    // This reverts visual changes if "Cancel" was clicked.
+    setChatInputEnabled(true);
+    // Update display based on current state.messages and current template
     updateJsonlOutput();
   }
 }
 
-// --- Indentation Logic --- (Called by event listener)
+// --- Indentation Logic ---
 // handleTabIndentation, handleTabIndent, handleShiftTabOutdent remain the same...
 export function handleTabIndentation(event) {
   event.preventDefault(); // Prevent default focus change
@@ -86,48 +105,33 @@ export function handleTabIndentation(event) {
   } else {
     // Multi-line selection handling (basic example or placeholder)
     console.log("Tab/Shift+Tab on selection not fully implemented.");
-    // For a basic implementation, you might just indent/outdent the first line
-    // or apply it naively which might break JSON structure.
-    // A robust solution requires parsing lines within the selection.
   }
 }
 
 function handleTabIndent(range) {
-  // Use execCommand for simplicity in inserting text at the cursor
-  // Uses state.indentSpaces ("  ") for manual tabbing consistency
   document.execCommand("insertText", false, state.indentSpaces);
 }
 
 function handleShiftTabOutdent(range) {
   const { startContainer, startOffset } = range;
-
-  // Check if the cursor is within a text node
   if (startContainer.nodeType === Node.TEXT_NODE) {
     const textContent = startContainer.textContent;
-    // Find the start of the current line
     let lineStartOffset = textContent.lastIndexOf("\n", startOffset - 1) + 1;
-
-    // Check if the line starts with the indent spaces
     if (
       textContent.substring(
         lineStartOffset,
         lineStartOffset + state.indentSpaces.length
       ) === state.indentSpaces
     ) {
-      // Create a range covering the indent spaces to remove
       const outdentRange = document.createRange();
       outdentRange.setStart(startContainer, lineStartOffset);
       outdentRange.setEnd(
         startContainer,
         lineStartOffset + state.indentSpaces.length
       );
-
-      // Check if the cursor is *after* the indent before deleting
-      // This prevents deleting if the cursor is within the indent itself
       if (startOffset >= lineStartOffset + state.indentSpaces.length) {
-        outdentRange.deleteContents(); // Remove the spaces
+        outdentRange.deleteContents();
       }
     }
-    // If not indented, do nothing for Shift+Tab
   }
 }

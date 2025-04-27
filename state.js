@@ -1,8 +1,12 @@
 // state.js - Manages application state
+import { formatTemplates, defaultFormatName } from "./templates.js";
 
-export let messages = []; // Array to hold message data { role: 'user'/'assistant', content: '' }
+export let messages = [];
 export let isEditingJson = false;
-export const indentSpaces = "  "; // Define indentation spaces for manual Tab key
+export const indentSpaces = "  "; // For manual Tab key
+
+// Add state for current format
+export let currentFormatTemplate = formatTemplates[defaultFormatName];
 
 // --- State Modifiers ---
 export function setMessages(newMessages) {
@@ -16,22 +20,23 @@ export function addMessage(message) {
 export function updateMessageContent(index, content) {
   if (index >= 0 && index < messages.length) {
     messages[index].content = content;
-    return true; // Indicate success
+    return true;
   }
-  return false; // Indicate failure (index out of bounds)
+  return false;
 }
 
 export function setEditingJson(isEditing) {
   isEditingJson = isEditing;
 }
 
+// Function to update the current format template
+export function setCurrentFormatTemplate(template) {
+  currentFormatTemplate = template;
+}
+
 // --- Helper Function ---
-/**
- * Filters the messages array to remove empty ones,
- * suitable for JSON output.
- * @returns {Array} The filtered array of message objects.
- */
 export function getFilteredMessagesForJson() {
+  // Filter out messages that are truly empty
   return messages.filter((msg) => {
     return msg.content.trim() !== "";
   });
