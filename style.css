@@ -1,0 +1,61 @@
+/* Add any custom styles here if needed, beyond Tailwind */
+
+/* Style textareas to look like Shadcn inputs */
+textarea {
+    @apply flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+/* Style labels */
+label {
+    @apply block text-sm font-medium mb-1 text-foreground;
+}
+
+/* Add some spacing within message pairs */
+.message-pair>div:not(:last-child) {
+    margin-bottom: 1rem;
+    /* space between user and assistant boxes */
+}
+
+/* Styles for when chat container is disabled during JSON edit */
+#chat-container.disabled {
+    @apply opacity-50 pointer-events-none bg-muted/40;
+}
+
+#chat-container.disabled textarea {
+    @apply cursor-not-allowed;
+}
+
+/* --- Line Number Styles --- */
+
+/* Ensure consistent font and line height for alignment */
+/* REMOVED padding-top and padding-bottom from here */
+#line-numbers,
+#jsonl-output {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+    /* Use Tailwind's text-sm line-height if possible, or set explicitly */
+    line-height: 1.25rem;
+    /* Adjust if text-sm line-height is different */
+    font-size: 0.875rem;
+    /* text-sm */
+    /* Padding is now handled ONLY by Tailwind classes on containers */
+}
+
+/* Style individual line number divs */
+#line-numbers>div {
+    min-height: 1.25rem;
+    /* Match line-height */
+    box-sizing: border-box;
+}
+
+/* Style for editable pre element - apply to the <pre> tag now */
+#json-pre[contenteditable="true"] {
+    @apply ring-2 ring-ring bg-background;
+    /* Add visual cue */
+}
+
+/* Prevent line numbers from interfering with context menu trigger */
+#line-numbers {
+    pointer-events: none;
+    /* Clicks pass through to container */
+}

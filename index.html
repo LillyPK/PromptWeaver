@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat JSONL Creator</title>
+    <!-- Include Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css" />
+    <script>
+        // Optional: Configure Tailwind (e.g., dark mode)
+        tailwind.config = {
+            darkMode: "class", // or 'media'
+            theme: {
+                extend: {
+                    colors: {
+                        border: "hsl(var(--border))",
+                        input: "hsl(var(--input))",
+                        ring: "hsl(var(--ring))",
+                        background: "hsl(var(--background))",
+                        foreground: "hsl(var(--foreground))",
+                        primary: {
+                            DEFAULT: "hsl(var(--primary))",
+                            foreground: "hsl(var(--primary-foreground))",
+                        },
+                        secondary: {
+                            DEFAULT: "hsl(var(--secondary))",
+                            foreground: "hsl(var(--secondary-foreground))",
+                        },
+                        destructive: {
+                            DEFAULT: "hsl(var(--destructive))",
+                            foreground: "hsl(var(--destructive-foreground))",
+                        },
+                        muted: {
+                            DEFAULT: "hsl(var(--muted))",
+                            foreground: "hsl(var(--muted-foreground))",
+                        },
+                        accent: {
+                            DEFAULT: "hsl(var(--accent))",
+                            foreground: "hsl(var(--accent-foreground))",
+                        },
+                        popover: {
+                            DEFAULT: "hsl(var(--popover))",
+                            foreground: "hsl(var(--popover-foreground))",
+                        },
+                        card: {
+                            DEFAULT: "hsl(var(--card))",
+                            foreground: "hsl(var(--card-foreground))",
+                        },
+                    },
+                    borderRadius: {
+                        lg: "var(--radius)",
+                        md: "calc(var(--radius) - 2px)",
+                        sm: "calc(var(--radius) - 4px)",
+                    },
+                    fontFamily: {
+                        mono: [
+                            "ui-monospace",
+                            "SFMono-Regular",
+                            "Menlo",
+                            "Monaco",
+                            "Consolas",
+                            '"Liberation Mono"',
+                            '"Courier New"',
+                            "monospace",
+                        ],
+                    },
+                },
+            },
+        };
+    </script>
+    <style type="text/tailwindcss">
+        /* Add Shadcn UI variables (adjust colors as needed) */
+      :root {
+        --background: 0 0% 100%;
+        --foreground: 222.2 84% 4.9%;
+        --card: 0 0% 100%;
+        --card-foreground: 222.2 84% 4.9%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 222.2 84% 4.9%;
+        --primary: 222.2 47.4% 11.2%;
+        --primary-foreground: 210 40% 98%;
+        --secondary: 210 40% 96.1%;
+        --secondary-foreground: 222.2 47.4% 11.2%;
+        --muted: 210 40% 96.1%;
+        --muted-foreground: 215.4 16.3% 46.9%;
+        --accent: 210 40% 96.1%;
+        --accent-foreground: 222.2 47.4% 11.2%;
+        /* Destructive colors (adjust if needed) */
+        --destructive: 0 84.2% 60.2%; /* Default red */
+        --destructive-foreground: 210 40% 98%; /* Default light text */
+        --border: 214.3 31.8% 91.4%;
+        --input: 214.3 31.8% 91.4%;
+        --ring: 222.2 84% 4.9%;
+        --radius: 0.5rem;
+      }
+
+      .dark {
+        --background: 222.2 84% 4.9%;
+        --foreground: 210 40% 98%;
+        --card: 222.2 84% 4.9%;
+        --card-foreground: 210 40% 98%;
+        --popover: 222.2 84% 4.9%;
+        --popover-foreground: 210 40% 98%;
+        --primary: 210 40% 98%;
+        --primary-foreground: 222.2 47.4% 11.2%;
+        --secondary: 217.2 32.6% 17.5%;
+        --secondary-foreground: 210 40% 98%;
+        --muted: 217.2 32.6% 17.5%;
+        --muted-foreground: 215 20.2% 65.1%;
+        --accent: 217.2 32.6% 17.5%;
+        --accent-foreground: 210 40% 98%;
+        /* Destructive colors (dark mode) */
+        --destructive: 0 62.8% 30.6%; /* Darker red */
+        --destructive-foreground: 210 40% 98%; /* Light text */
+        --border: 217.2 32.6% 17.5%;
+        --input: 217.2 32.6% 17.5%;
+        --ring: 212.7 26.8% 83.9%;
+      }
+
+      /* Apply base styles */
+      body {
+        @apply bg-background text-foreground;
+      }
+    </style>
+</head>
+
+<body class="p-4 md:p-8 font-sans">
+    <div class="flex flex-col md:flex-row gap-8 max-w-7xl mx-auto">
+        <!-- Chat Input Area -->
+        <div class="flex-1 md:w-1/2">
+            <h1 class="text-2xl font-semibold mb-4">Chat Input</h1>
+            <div id="chat-container"
+                class="space-y-6 border border-border rounded-lg p-4 bg-card transition-opacity duration-300">
+                <!-- Chat pairs will be added here by JavaScript -->
+            </div>
+        </div>
+
+        <!-- JSONL Output Area -->
+        <div class="flex-1 md:w-1/2">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-2xl font-semibold">JSON Output</h1>
+                <!-- Button Group -->
+                <div class="flex items-center space-x-2">
+                    <!-- Cancel Button (Initially Hidden) -->
+                    <button id="cancel-json-button"
+                        class="hidden inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-destructive text-destructive-foreground hover:bg-destructive/90 h-10 px-4 py-2">
+                        Cancel
+                    </button>
+                    <!-- Save Button (Initially Hidden) -->
+                    <button id="save-json-button"
+                        class="hidden inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+                        Save JSON Changes
+                    </button>
+                </div>
+            </div>
+            <!-- Container handles scrolling and relative positioning for context menu -->
+            <div id="json-output-container"
+                class="border border-border rounded-lg bg-muted/40 h-[calc(100vh-10rem)] overflow-auto relative font-mono text-sm">
+                <!-- Flex wrapper for line numbers and code -->
+                <div id="json-content-wrapper" class="flex">
+                    <!-- Line Numbers -->
+                    <div id="line-numbers"
+                        class="sticky top-0 h-full select-none bg-muted p-2 pr-3 text-right text-muted-foreground"
+                        aria-hidden="true">
+                        <!-- Line numbers generated by JS -->
+                    </div>
+                    <!-- Code Area -->
+                    <pre id="json-pre"
+                        class="flex-1 p-2 outline-none focus:ring-2 focus:ring-ring rounded-r-[--radius]"><code id="jsonl-output" class="block whitespace-pre break-words text-foreground"></code></pre>
+                </div>
+
+                <!-- Context Menu (positioned relative to json-output-container) -->
+                <div id="json-context-menu"
+                    class="hidden absolute z-10 w-32 rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
+                    <button id="copy-json-button"
+                        class="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full text-left hover:bg-accent">
+                        Copy
+                    </button>
+                    <button id="edit-json-button"
+                        class="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full text-left hover:bg-accent">
+                        Edit
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+
+</html>
